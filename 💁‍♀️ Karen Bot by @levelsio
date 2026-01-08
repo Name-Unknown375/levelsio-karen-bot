@@ -10,22 +10,36 @@
 // more info: https://x.com/levelsio/status/2009011216132526407?s=20
 
 // <set vars here>
-    // this is the key you add to the url like /council?key= so only you can access it
+    // This is the key you add to the URL like /council?key=yourkey so only you can access it
     define('KEY_TO_ACCESS_THE_SCRIPT', 'key');
 
-    // I used Postmark but you can chance to other email services of coruse
+    // Email service API keys (uses Postmark, but you can change to other email services)
     define('POSTMARK_API_KEY', 'INSERT_KEY_HERE');
     define('OPENAI_API_KEY', 'your-key-here');
 
-    // email addresses
+    // Email configuration
     define('YOUR_NAME', 'Your Name To Sign The Letter');
     define('FROM_YOUR_EMAIL', 'you@you.com');
-    define('TO_COUNCIL_EMAIL', 'council@city.com');
-    define('CC_EMAILS', 'gf@gf.com');
+    define('TO_COUNCIL_EMAIL', 'council@city.com');  // Change this to your city council's email
+    define('CC_EMAILS', 'gf@gf.com');  // Optional: CC yourself or others
 
-    // set to your city
-    define('MAP_CENTER_LAT', 38.734674);
-    define('MAP_CENTER_LNG', -9.16427);
+    // === CHANGE THESE FOR YOUR CITY ===
+    // Set map center coordinates to your city
+    // To find coordinates: Go to Google Maps, right-click your city center, and copy the latitude/longitude
+    // Example cities:
+    //   Lisbon: 38.734674, -9.16427
+    //   New York: 40.7128, -74.0060
+    //   London: 51.5074, -0.1278
+    //   Tokyo: 35.6762, 139.6503
+    define('MAP_CENTER_LAT', 38.734674);  // Change to your city's latitude
+    define('MAP_CENTER_LNG', -9.16427);   // Change to your city's longitude
+
+    // === CHANGE THESE FOR YOUR CITY ===
+    // City council information (used in letter and page title)
+    define('CITY_NAME', 'Lisbon');  // Change to your city name
+    define('COUNCIL_NAME', 'Lisbon City Council');  // Change to your city council's full name
+    define('COUNTRY_FLAG', '🇵🇹');  // Change to your country's flag emoji (🇺🇸🇬🇧🇯🇵etc)
+    define('LANGUAGE', 'Portuguese');  // Change to your language (English, Spanish, etc)
 // </set vars here>
 
 error_reporting(0);
@@ -68,33 +82,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
-    $systemPrompt = "Você é um assistente que transforma reclamações informais em cartas formais em português de Portugal para enviar à Câmara Municipal.
+    // System prompt for GPT - customize the letter format and language for your city
+    $systemPrompt = "You are an assistant that transforms informal complaints into formal letters in ".LANGUAGE." to send to the ".COUNCIL_NAME.".
 
-FORMATO DA CARTA:
-Começa SEMPRE com um bloco de dados estruturados para scan rápido (só inclui campos que tens informação):
+LETTER FORMAT:
+ALWAYS start with a structured data block for quick scanning (only include fields you have information for):
 
 ---
-Resumo: [uma linha resumindo o problema, ex: 'Acumulação de lixo junto ao contentor há 3 dias']
-Localização: [morada/rua mencionada]
-Google Maps: [link se fornecido]
+Summary: [one line summarizing the problem, e.g., 'Trash accumulation near container for 3 days']
+Location: [address/street mentioned]
+Google Maps: [link if provided]
 ---
 
-Depois escreve a carta formal:
-- Saudação formal gender-neutral: usa 'Ex.mos Senhores,' (dirigido à Câmara em geral, não ao presidente)
-- Estruturar o problema de forma clara
-- Incluir um pedido de ação específico
-- Terminar com despedida formal
+Then write the formal letter:
+- Formal gender-neutral greeting (addressed to the council in general)
+- Clearly structure the problem
+- Include a specific request for action
+- End with formal closing
 
-IMPORTANTE: NUNCA adicionar placeholders, templates, ou texto entre parênteses retos como [nome], [morada], [Espaço para...], etc. A carta deve estar pronta a enviar sem qualquer texto para preencher. Se não tens uma informação, simplesmente não incluas esse campo.
+IMPORTANT: NEVER add placeholders, templates, or text in square brackets like [name], [address], [Space for...], etc. The letter must be ready to send without any text to fill in. If you don't have information, simply don't include that field.
 
-Assina sempre a carta com:
-Com os melhores cumprimentos,
+Always sign the letter with an appropriate formal closing for ".LANGUAGE.", followed by:
 ".YOUR_NAME;
 
-    $userPrompt = "Transforma a seguinte reclamação numa carta formal para a Câmara Municipal de Lisboa.\n\n";
+    $userPrompt = "Transform the following complaint into a formal letter to the ".COUNCIL_NAME.".\n\n";
 
     if (!empty($address)) {
-        $userPrompt .= "Localização do problema: $address\n";
+        $userPrompt .= "Problem location: $address\n";
         if (!empty($lat) && !empty($lng)) {
             $userPrompt .= "Google Maps: https://www.google.com/maps/@$lat,$lng,100m/data=!3m1!1e3\n";
         }
@@ -104,10 +118,13 @@ Com os melhores cumprimentos,
     $userPrompt .= "Report:\n$complaint";
 
     if ($hasAttachments) {
-        $userPrompt .= "\n\nNOTA: O remetente vai anexar fotografias como prova. Menciona isso na carta (ex: 'Em anexo envio fotografias que comprovam a situação descrita.')";
+        $userPrompt .= "\n\nNOTE: The sender will attach photographs as evidence. Mention this in the letter (e.g., 'I am attaching photographs that document the situation described.')";
     }
 
-    $userPrompt .= "\n\nEscreve primeiro a carta em português, depois escreve ===ENGLISH=== e a tradução em inglês.";
+    // If language is not English, ask for English translation too
+    if (LANGUAGE !== 'English') {
+        $userPrompt .= "\n\nWrite the letter first in ".LANGUAGE.", then write ===ENGLISH=== and the English translation.";
+    }
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
@@ -312,8 +329,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Report to Lisbon City Council (💁‍♀️ Karen Bot)</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇵🇹</text></svg>">
+    <title>Report to <?= COUNCIL_NAME ?> (💁‍♀️ Karen Bot)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'><?= COUNTRY_FLAG ?></text></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -486,7 +503,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </style>
 </head>
 <body>
-    <h1>🇵🇹 Report to Lisbon City Council (💁‍♀️ Karen Bot)</h1>
+    <h1><?= COUNTRY_FLAG ?> Report to <?= COUNCIL_NAME ?> (💁‍♀️ Karen Bot)</h1>
 
 
     <?php if ($message): ?>
@@ -522,11 +539,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             Write letter
         </button>
 
-        <label for="complaint" style="margin-top: 15px;">Portuguese formal letter (this will be sent)</label>
-        <textarea id="complaint" name="complaint" placeholder="Portuguese letter will appear here..." style="min-height: 400px;"><?= htmlspecialchars($complaint ?? '') ?></textarea>
+        <label for="complaint" style="margin-top: 15px;"><?= LANGUAGE ?> formal letter (this will be sent)</label>
+        <textarea id="complaint" name="complaint" placeholder="<?= LANGUAGE ?> letter will appear here..." style="min-height: 400px;"><?= htmlspecialchars($complaint ?? '') ?></textarea>
 
+        <?php if (LANGUAGE !== 'English'): ?>
         <label for="expanded" style="margin-top: 15px;">English translation (for your reference)</label>
         <textarea id="expanded" readonly placeholder="English translation will appear here..." style="min-height: 400px;"><?= htmlspecialchars($expanded ?? '') ?></textarea>
+        <?php endif; ?>
 
         <div class="buttons">
             <button type="button" onclick="sendComplaint()">Send complaint</button>
@@ -536,8 +555,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </form>
 
     <script>
-        // Initialize map centered on New York City (default)
-        const map = L.map('map').setView([MAP_CENTER_LAT, MAP_CENTER_LNG], 13);
+        // Initialize map centered on the configured city
+        const map = L.map('map').setView([<?= MAP_CENTER_LAT ?>, <?= MAP_CENTER_LNG ?>], 13);
 
         const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
@@ -693,7 +712,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 if (data.success) {
                     const parts = data.expanded.split('===ENGLISH===');
                     document.getElementById('complaint').value = parts[0].trim();
-                    document.getElementById('expanded').value = parts[1] ? parts[1].trim() : '';
+                    const expandedField = document.getElementById('expanded');
+                    if (expandedField) {
+                        expandedField.value = parts[1] ? parts[1].trim() : '';
+                    }
                 } else {
                     alert('Error: ' + (data.error || 'Failed to expand'));
                 }
@@ -744,7 +766,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     statusDiv.innerHTML = '<span style="color: green;">' + data.message + '</span>';
                     document.getElementById('input').value = '';
                     document.getElementById('complaint').value = '';
-                    document.getElementById('expanded').value = '';
+                    const expandedField = document.getElementById('expanded');
+                    if (expandedField) {
+                        expandedField.value = '';
+                    }
                     localStorage.removeItem('complaint');
                 } else {
                     statusDiv.innerHTML = '<span style="color: red;">' + data.message + '</span>';
